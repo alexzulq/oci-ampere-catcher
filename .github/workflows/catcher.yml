@@ -1,18 +1,24 @@
-name: Oracle Ampere Capacity Catcher
+name: Oracle Ampere 24/7 Capacity Catcher
 
 on:
   schedule:
-    # Runs every 30 minutes around the clock (48 times/day)
-    - cron: '*/30 * * * *'
-  workflow_dispatch: # Allows manual trigger from GitHub UI anytime
+    # Failsafe restart trigger every 5 hours
+    - cron: '0 */5 * * *'
+  workflow_dispatch: # Allows manual trigger anytime from GitHub web UI
+
+concurrency:
+  group: oci-catcher-singleton
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  actions: write
   issues: write
+  contents: write
 
 jobs:
-  attempt-provisioning:
+  continuous-provisioner:
     runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6 hours max runner lifetime
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Provisioning Attempt Batch
+      - name: Run 24/7 Continuous Loop
         env:
           OCI_USER: ${{ secrets.OCI_USER }}
           OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
@@ -36,4 +42,5 @@ jobs:
           OCI_SSH_PUBKEY: ${{ secrets.OCI_SSH_PUBKEY }}
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python main.py
